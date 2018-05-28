@@ -1,0 +1,90 @@
+<!doctype html>
+<title>Simple tables</title>
+<style>
+  body            { font-family: "Lucida Sans Unicode", "Lucida Grande", sans-serif;}
+  a, h1, h2       { color: #377ba8; }
+  h1, h2          { margin: 0; }
+
+  table.dataframe, .dataframe th, .dataframe td {
+    width: 100%;
+    border: 1px solid black;
+    border-bottom: 1px solid #C8C8C8;
+    border-collapse: collapse;
+    padding: 10px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    height: 1.5em;
+    page-break-inside: avoid;
+  }
+
+  table.dataframe {
+    margin-left:auto;
+    margin-right:auto;
+  }
+
+  thead{display: table-header-group;}
+  tfoot {display: table-row-group;}
+  tr {page-break-inside: avoid;}
+
+  .dataframe td:before {
+    content: '';
+    display: block;
+    width: 64px;
+  }
+
+  tr:nth-child(odd)		{ background-color:#eee; }
+  tr:nth-child(even)	{ background-color:#fff; }
+
+  tr:hover            { background-color: #ffff99;}
+</style>
+<div class=page>
+  <table style="width: 100%; font-size: 18px;">
+  <tbody>
+  <tr>
+  <td>
+  <p>The City of Edmonton<br />CASH DELIVERY RECEIPT</p>
+  </td>
+  <td>&nbsp;Date: {{date}}</td>
+  </tr>
+  </tbody>
+  </table>
+  <p style="font-size: 12px;">RECEIVED FROM:&nbsp;</p>
+  <table border="1" class="dataframe">
+  <thead>
+    <tr>
+      <th colspan="2" text-align='center' style="font-size: 12px;">DEPT. NAME: City Operation</th>
+      <th colspan="5" text-align='center' style="font-size: 12px;">EPark</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for id in optimal_route %}
+    <tr>
+      <td style="font-size: 22px;">EPark Unit # {{id|safe}}</td>
+      <td style="font-size: 12px;">Box Out:</td>
+      <td style="font-size: 12px;"></td>
+      <td style="font-size: 12px;">Box In:</td>
+      <td style="font-size: 12px;"></td>
+      <td style="font-size: 12px;">Time:</td>
+      <td style="font-size: 12px;"></td>
+    </tr>
+  {% endfor %}
+  <tr>
+      <th colspan="1" align='left' style="font-size: 12px;">Number of Boxes Used:<br/><br/></th>
+      <th colspan="3" align='left' style="font-size: 12px;">Number of Boxes Dropped Off:<br/><br/></th>
+      <th colspan="3" align='left' style="font-size: 12px;">Number of Boxes Received:<br/><br/></th>
+    </tr>
+    <tr>
+    <th colspan="1" align='left' style="font-size: 12px;">Boxes Delivered By:<br/><br/>
+    </th>
+      <th colspan="3" align='left' style="font-size: 12px;">Date: <br/><br/></th>
+      <th colspan="3" align='left' style="font-size: 12px;">Time:<br/><br/></th>
+    </tr>
+    <tr>
+    <th colspan="1" align='left' style="font-size: 12px;">Boxes Received By:<br/><br/>
+    </th>
+      <th colspan="3" align='left' style="font-size: 12px;">Date: <br/><br/></th>
+      <th colspan="3" align='left' style="font-size: 12px;">Time:<br/><br/></th>
+    </tr>
+    </tbody>
+  </table>
+</div>

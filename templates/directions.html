@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html>
+  <head>
+      <script src="https://code.jquery.com/jquery-1.10.2.js"></script>
+      <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
+    <meta charset="utf-8">
+      <link rel="shortcut icon" type="image/png" href="static/the-city-of-edmonton.png"/>
+    <title>Waypoints in directions</title>
+    <style>
+      body {
+        background-color: #eaeeef;
+      }
+      #right-panel {
+        padding-left: 10px;
+      }
+      #right-panel select {
+        width: 100%;
+        height: 100%;
+      }
+      #right-panel i{
+        font-size: 12px;
+      }
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        float: left;
+        width: 65%;
+        height: 80%;
+        padding-top: 0;
+      }
+      #right-panel {
+        width: 30%;
+        height: 80%;
+        float: left;
+        text-align: left;
+        padding-top: 0;
+      }
+      #buttons-panel{
+        border-width: 1px;
+        float: top;
+        margin-top: 0px;
+        clear:both;
+      }
+      .button{
+        background-color: #4ca6af;
+        border-width: 1px;
+        float: top;
+        margin-top: 0px;
+        clear:both;
+        padding: 15px 32px;
+        font-size: 16px;
+      }
+    table {
+        counter-reset: rowNumber;
+        font-family: arial, sans-serif;
+        border-collapse: collapse;
+        width: 100%;
+    }
+    table tr {
+      counter-increment: rowNumber;
+    }
+    table td, th {
+        content: counter(rowNumber);
+          min-width: 1em;
+          margin-right: 0.5em;
+        border: 1px solid #dddddd;
+        text-align: left;
+        padding: 8px;
+    }
+    .header img {
+        padding: 0px;
+        margin: 0px;
+      float: left;
+      width: 200px;
+      height: 100%;
+      background-color: white;
+    }
+    .header {
+        margin: 0px;
+        width: 100%;
+        height: 8%;
+        padding: 0;
+        color: black;
+        background-color: #4ca6af;
+        clear: left;
+        text-align: center;
+    }
+    #loading {
+            display: None;
+            background-color:#EFEFEF;
+            position: fixed;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            top: 0px;
+            left: 0px;
+            opacity: .5; /* in FireFox */
+            filter: alpha(opacity=50); /* in IE */
+    }
+    .progress {
+        background: url(http://preloaders.net/preloaders/360/Velocity.gif) center center no-repeat;
+        height: 100%;
+        z-index: 20;
+    }
+    </style>
+  </head>
+  <body>
+    <div class="header">
+        <img src="{{url_for('static', filename='the-city-of-edmonton.png')}}" alt="logo" />
+        <h1 align="center" style="margin-top: 0px;">EPark Coin Pickup Route Optimization</h1>
+    </div>
+    <div id="map"></div>
+    <div id="right-panel">
+      <div>
+          <button type="button" value="Submit" onclick="howMany()" style="font-size: 16px;">Select: </button><input id="howMany" type="number" style="font-size:16px;"><br>
+      </div>
+        <div style="height: 97%; overflow: scroll;">
+              <table width="100%">
+                  <thead>
+                      <tr>
+                          <th></th>
+                          <th>Terminal ID:</th>
+                          <th>Coin Balance</th>
+                          <th>Number of days since</br>last collected</th>
+                      </tr>
+                  <tbody>
+                      </thead>
+                        <form action="" id="waypoints">
+                            {% for key, value in id_latlon.items() %}
+                                  <tr>
+                                      <td>{{ loop.index }}</td>
+                                    <td><input onchange="addMarker(this);" type="checkbox" id="{{key}}"
+                                               value="{{value['lat_lon']}}"/>{{key}}</td>
+                                    <td>{{value['CoinBalance']}}</td>
+                                    <td>{{value['Days Since last Collected']}}</td>
+                                  </tr>
+                            {% endfor %}
+                        </form>
+                  </tbody>
+            </table>
+        </div>
+    <!--<div id="directions-panel"></div>-->
+    </div>
+      <div id="buttons-panel">
+          <button class="button" id="submit">Get Directions</button>
+          <button class="button" id="View" onclick="window.open('https://www.google.ca/maps','_blank')">View in google</button>
+          <button class="button" id="pdfView"  onclick="window.open('{{ url_for( 'show_tables' ) }} ', '_blank')">Get Cash Delivery Receipt</button>
+      </div>
+    <div class="progress" id="loading">
+        <div class="progress-bar progress-bar-striped active"  role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" style="width: 0%"></div>
+    </div>
+    <script>
+
+      var $SCRIPT_ROOT = {{ request.script_root|tojson|safe }};
+
+      var checkboxArray = $('input:checkbox');
+
+      var wpts = $('input:checkbox');
+
+      var markers = [];
+
+      var totalDistance;
+
+      var start = '53.5892396,-113.42835785';
+      var end = '53.568889,-113.502966';
+
+      function clearAll(){
+        initMap();
+
+        var checkboxArray = document.getElementById('waypoints');
+        document.getElementById("selections_left").innerHTML = number;
+        for (var i = 0; i < checkboxArray.length; i++) {
+          checkboxArray[i].checked = false;
+        }
+
+      }
+
+      function initMap() {
+        var directionsService = new google.maps.DirectionsService;
+        //var directionsDisplay = new google.maps.DirectionsRenderer;
+
+        var uluru = {lat: 53.5413306, lng: -113.4952283};
+        var map = new google.maps.Map(document.getElementById('map'), {
+          zoom: 11,
+          center: uluru
+        });
+
+        <!--var checkboxArray = document.getElementById('waypoints');-->
+
+        <!--var wpts = document.getElementById("waypoints");-->
+
+        for (var i = 0; i < wpts.length; i++){
+          latlon = wpts[i].value.split(",")
+          var marker = new google.maps.Marker({
+            position: new google.maps.LatLng(parseFloat(latlon[0]), parseFloat(latlon[1])),
+            label: {
+    				text: wpts[i].id.split(",")[0],
+    				color: 'purple'
+		  },
+            map: map
+          });
+          marker.setVisible(false);
+          marker.set("id", wpts[i].id);
+          markers.push(marker);
+        };
+
+        //respond to the submit button
+        document.getElementById('submit').addEventListener('click', function() {
+          // var uluru = {lat: 53.5413306, lng: -113.4952283};
+          // var map = new google.maps.Map(document.getElementById('map'), {
+          //   zoom: 11,
+          //   center: uluru
+          // });
+
+        //respond to the pdfview button button
+
+
+
+
+        //directionsDisplay.setMap(map);
+
+        var waypts = [];
+        for (var i = 0; i < checkboxArray.length; i++) {
+          if (checkboxArray[i].checked) {
+            waypts.push(checkboxArray[i].id);
+          }
+        }
+
+        var getStopOrder = function(e) {
+
+                            stops = waypts.toString();
+                            var source = new EventSource("/progress?stopover=" + encodeURIComponent(stops));
+                            source.onmessage = function(event) {
+                                show('loading', true);
+                                var data = event.data.split('\n')
+                                // console.log(data);
+                                if (data[0] == 'Not Found'){
+                                    alert(data[1] + " not found in location table.")
+                                    show('loading', false);
+                                    source.close();
+                                    addMarker(point);
+                                }
+                                else if (data[0] != 'done'){
+                                    $('.progress-bar').css('width', event.data+'%').attr('aria-valuenow', event.data);
+                                }else{
+                                    var updateMap = function(e) {
+                                                calculateAndDisplayRoute(JSON.parse(data[1].replace(/'/g, '"')), directionsService, map);
+                                                $("#View").attr("onclick", "window.open('" + data[2] + "','_blank')");
+                                    };
+                                    updateMap();
+                                    show('loading', false); //makes page more lightweight;
+                                    source.close();
+                                }
+                            }
+                    }
+
+		getStopOrder();
+        });
+}
+
+      function addMarker(point) {
+
+          for (var i = 0; i < checkboxArray.length; i++) {
+              if (checkboxArray[i].checked){
+                markers[i].setVisible(true);
+              }
+              else{
+                markers[i].setVisible(false);
+              }
+            }
+      }
+
+      function howMany(){
+        var count = parseInt(document.getElementById('howMany').value);
+        if (count <=20){
+            for (var i = 0; i < count; i++) {
+              checkboxArray[i].checked = true;
+              markers[i].setVisible(true);
+            }
+        }
+        else{
+            alert("You can only select 20 points.")
+        }
+      }
+
+
+      function getIcon(color) {
+        return MapIconMaker.createMarkerIcon({width: 20, height: 34, primaryColor: color, cornercolor:color});
+      }
+
+
+      function calculateAndDisplayRoute(optimalRoute, directionsService, map) {
+
+        var uluru = {lat: 53.5413306, lng: -113.4952283};
+        var map = new google.maps.Map(document.getElementById('map'), {
+           zoom: 11,
+           center: uluru
+        });
+
+        // Callback function to process service results
+        var service_callback = function(response, status) {
+            if (status != 'OK') {
+                console.log('Directions request failed due to ' + status);
+                return;
+            }
+            var renderer = new google.maps.DirectionsRenderer;
+            renderer.setMap(map);
+            renderer.setOptions({ suppressMarkers: true, preserveViewport: true });
+            renderer.setDirections(response);
+        };
+
+        if (optimalRoute.length < 20){
+          var waypoints = [];
+          for (var i = 0; i < optimalRoute.length; i++) {
+            waypoints.push({
+              location: document.getElementById(optimalRoute[i]).value,
+              stopover: true
+            });
+          }
+          var service_options = {
+              origin: start,
+              destination: end,
+              waypoints: waypoints,
+              optimizeWaypoints: false,
+              travelMode: 'DRIVING'
+           }
+          // Send request
+          directionsService.route(service_options, service_callback);
+        }
+        else{
+          // Divide route to several parts because max stations limit is 25 (23 waypoints + 1 origin + 1 destination)
+          for (var i = 0, parts = [], max = 8; i < optimalRoute.length; i = i + max)
+              parts.push(optimalRoute.slice(i, i + max + 1));
+
+          parts[0].unshift('start')
+          parts[parts.length - 1].push('end')
+
+          // Send requests to service to get route (for stations count <= 25 only one request will be sent)
+          for (var i = 0; i < parts.length; i++) {
+            // Waypoints does not include first station (origin) and last station (destination)
+            var waypoints = [];
+            for (var j = 1; j < parts[i].length - 1; j++)
+                waypoints.push({location: document.getElementById(parts[i][j]).value, stopover: false});
+
+            // Service options
+            if(parts[i][0] == 'start'){
+              var service_options = {
+                  origin: start,
+                  destination: document.getElementById(parts[i][parts[i].length - 1]).value,
+                  waypoints: waypoints,
+                  travelMode: 'DRIVING'
+               };
+            }
+            else if (parts[i][parts[i].length - 1] == 'end'){
+                var service_options = {
+                  origin: document.getElementById(parts[i][0]).value,
+                  destination: end,
+                  waypoints: waypoints,
+                  travelMode: 'DRIVING'
+               };
+
+            }
+            else {
+                var service_options = {
+                  origin: document.getElementById(parts[i][0]).value,
+                  destination: document.getElementById(parts[i][parts[i].length - 1]).value,
+                  waypoints: waypoints,
+                  travelMode: 'DRIVING'
+               }
+            }
+            // Send request
+            directionsService.route(service_options, service_callback);
+        }
+        }
+
+        for (var i = 0; i < optimalRoute.length; i++){
+          latlon = document.getElementById(optimalRoute[i]).value.split(",");
+          var marker = new google.maps.Marker({
+            position: new google.maps.LatLng(parseFloat(latlon[0]), parseFloat(latlon[1])),
+            icon: 'http://maps.google.com/mapfiles/ms/icons/yellow-dot.png',
+            title: optimalRoute[i],
+            label: {
+    				text: String(i+1)
+		  },
+            map: map
+          });
+        }
+
+        var marker = new google.maps.Marker({
+            position: new google.maps.LatLng(parseFloat(start.split(",")[0]), parseFloat(start.split(",")[1])),
+            icon: 'http://maps.google.com/mapfiles/ms/icons/green-dot.png',
+            label: {
+    				text: 'S',
+    				color: 'black'
+		  },
+            map: map
+        });
+
+        var marker = new google.maps.Marker({
+            position: new google.maps.LatLng(parseFloat(end.split(",")[0]), parseFloat(end.split(",")[1])),
+            icon: 'http://maps.google.com/mapfiles/ms/icons/red-dot.png',
+            label: {
+    				text: 'S',
+    				color: 'black'
+		  },
+            map: map
+        });
+
+      }
+
+      function show(id, value) {
+            document.getElementById(id).style.display = value ? 'block' : 'none';
+      }
+    </script>
+    <script async defer
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCVHgsC12acrHbhsDnYLLpC_ymUKCc4kdM&callback=initMap">
+    </script>
+  </body>
+</html>
